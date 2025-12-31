@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>细胞保卫战：王牌特工队</title>
+    <style>
+        :root {
+            --primary-blue: #007bff;
+            --primary-yellow: #ffc107;
+            --primary-orange: #fd7e14;
+            --bg-color: #f8f9fa;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        #game-container {
+            background: white;
+            width: 90%;
+            max-width: 600px;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        h1 { color: #333; margin-bottom: 10px; }
+        .score-board { font-size: 1.2rem; color: #666; margin-bottom: 20px; }
+
+        #scenario-box {
+            background: #e9ecef;
+            padding: 20px;
+            border-radius: 15px;
+            min-height: 100px;
+            margin-bottom: 30px;
+            font-size: 1.1rem;
+            line-height: 1.6;
+            color: #444;
+            border-left: 5px solid var(--primary-blue);
+        }
+
+        .agent-selector {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 30px;
+        }
+
+        .agent-card {
+            cursor: pointer;
+            padding: 15px;
+            border: 3px solid transparent;
+            border-radius: 12px;
+            transition: all 0.2s;
+            width: 80px;
+        }
+
+        .agent-card img { width: 50px; height: 50px; display: block; margin: 0 auto 10px; }
+        .agent-card span { font-weight: bold; font-size: 0.9rem; }
+
+        /* 特工颜色 */
+        .vc { color: var(--primary-blue); }
+        .vc.selected { border-color: var(--primary-blue); background: #e7f1ff; }
+        
+        .ve { color: #856404; }
+        .ve.selected { border-color: var(--primary-yellow); background: #fff3cd; }
+
+        .caro { color: var(--primary-orange); }
+        .caro.selected { border-color: var(--primary-orange); background: #fff3e0; }
+
+        #submit-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 12px 40px;
+            border-radius: 25px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        #submit-btn:hover { background: #218838; }
+
+        #feedback {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            display: none;
+        }
+
+        .correct { background: #d4edda; color: #155724; }
+        .wrong { background: #f8d7da; color: #721c24; }
+
+        #next-btn {
+            margin-top: 15px;
+            display: none;
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <h1>🛡️ 细胞保卫战</h1>
+    <p>—— 王牌特工队 ——</p>
+    <div class="score-board">当前得分: <span id="score">0</span></div>
+
+    <div id="scenario-box">
+        正在加载任务情报...
+    </div>
+
+    <p style="color: #888; font-size: 0.8rem;">点击图标选择特工（可多选），然后提交</p>
+    <div class="agent-selector">
+        <div class="agent-card vc" onclick="toggleAgent(this, 'VC')">
+            <div style="font-size: 40px;">💙</div>
+            <span>特工 VC</span>
+        </div>
+        <div class="agent-card ve" onclick="toggleAgent(this, 'VE')">
+            <div style="font-size: 40px;">💛</div>
+            <span>特工 VE</span>
+        </div>
+        <div class="agent-card caro" onclick="toggleAgent(this, 'CARO')">
+            <div style="font-size: 40px;">🧡</div>
+            <span>特工 胡</span>
+        </div>
+    </div>
+
+    <button id="submit-btn" onclick="submitAnswer()">确认派往战场</button>
+    
+    <div id="feedback"></div>
+    <button id="next-btn" onclick="nextQuestion()">接下一项任务</button>
+</div>
+
+<script>
+    const scenarios = [
+        {
+            text: "警报！主人刚才在室外抽了一支烟，并没有戴口罩走过了雾霾区！大量自由基涌入血液和肺部！",
+            correct: ["VC", "VE"],
+            explanation: "解析：VC在血液（水溶性）拦截，VE保护肺部及血管细胞膜（脂溶性）。需联合作战！"
+        },
+        {
+            text: "警报！主人中午吃了一顿全是煎炸烧烤的剩饭剩菜，大量氧化油脂正在攻击身体！",
+            correct: ["VE"],
+            explanation: "解析：油脂氧化直接威胁脂类环境，VE是脂溶性环境的主力军！"
+        },
+        {
+            text: "警报！主人为了赶报告，已经连续盯着高亮度的电脑屏幕看了4个小时！蓝光正在攻击眼部！",
+            correct: ["CARO"],
+            explanation: "解析：类胡萝卜素（如叶黄素）是眼睛的守护神，能过滤蓝光保护黄斑区。"
+        },
+        {
+            text: "紧急情况！体检发现主人体内重金属铅超标，且最近皮肤特别暗沉。需要哪位特工排毒美白？",
+            correct: ["VC"],
+            explanation: "解析：VC特工拥有促进铅排出和还原黑色素的双重独门绝技！"
+        },
+        {
+            text: "终极挑战！主人在夏天没涂防晒霜去海边暴晒了一下午，皮肤红烫，全身面临氧化危机！",
+            correct: ["VC", "VE", "CARO"],
+            explanation: "解析：暴晒是全方位攻击！VC修复胶原，VE护膜，类胡萝卜素御紫外线。必须1+1+1>3！"
+        }
+    ];
+
+    let currentIdx = 0;
+    let score = 0;
+    let selectedAgents = [];
+
+    function loadScenario() {
+        if (currentIdx >= scenarios.length) {
+            document.getElementById('game-container').innerHTML = `
+                <h2>🎉 战役胜利！</h2>
+                <p>你最终获得了 ${score} 分</p>
+                <p>你已经掌握了抗氧化三剑客的核心奥秘！</p>
+                <button onclick="location.reload()" style="padding:10px 20px; cursor:pointer;">重新开始</button>
+            `;
+            return;
+        }
+        document.getElementById('scenario-box').innerText = scenarios[currentIdx].text;
+        resetSelection();
+    }
+
+    function toggleAgent(el, agent) {
+        if (el.classList.contains('selected')) {
+            el.classList.remove('selected');
+            selectedAgents = selectedAgents.filter(a => a !== agent);
+        } else {
+            el.classList.add('selected');
+            selectedAgents.push(agent);
+        }
+    }
+
+    function resetSelection() {
+        selectedAgents = [];
+        document.querySelectorAll('.agent-card').forEach(card => card.classList.remove('selected'));
+        document.getElementById('feedback').style.display = 'none';
+        document.getElementById('next-btn').style.display = 'none';
+        document.getElementById('submit-btn').style.display = 'inline-block';
+    }
+
+    function submitAnswer() {
+        const correctArr = scenarios[currentIdx].correct;
+        const feedbackEl = document.getElementById('feedback');
+        
+        // 检查选择是否完全正确（不分顺序）
+        const isCorrect = selectedAgents.length === correctArr.length && 
+                          selectedAgents.every(a => correctArr.includes(a));
+
+        feedbackEl.style.display = 'block';
+        if (isCorrect) {
+            score += 20;
+            document.getElementById('score').innerText = score;
+            feedbackEl.className = 'correct';
+            feedbackEl.innerHTML = "<b>✅ 指挥正确！</b><br>" + scenarios[currentIdx].explanation;
+        } else {
+            feedbackEl.className = 'wrong';
+            feedbackEl.innerHTML = "<b>❌ 支援不当！</b><br>" + scenarios[currentIdx].explanation;
+        }
+
+        document.getElementById('submit-btn').style.display = 'none';
+        document.getElementById('next-btn').style.display = 'inline-block';
+    }
+
+    function nextQuestion() {
+        currentIdx++;
+        loadScenario();
+    }
+
+    // 初始化
+    loadScenario();
+</script>
+
+</body>
+</html>
